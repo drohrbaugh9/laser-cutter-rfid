@@ -18,10 +18,6 @@ def connect_to_db(db_name: str):
 def __add_entry(ramcard_uid: int, fullname: str, is_admin: int):
   global db, db_cursor
   
-  '''db_cursor.execute("""
-    INSERT INTO users VALUES
-      (?, ?, ?)
-  """, [ramcard_uid, fullname, is_admin])'''
   db_cursor.execute("INSERT INTO users VALUES (?, ?, ?)", [ramcard_uid, fullname, is_admin])
   
   db.commit()
@@ -36,13 +32,13 @@ def get_row_from_uid(uid: int):
   global db_cursor
   res = db_cursor.execute("SELECT * FROM users WHERE ramcard_uid = ?", [uid])
   
-  data = res.fetchone()
+  row = res.fetchone()
   duplicate = res.fetchone()
   
   found_duplicate = False
   if duplicate: found_duplicate = True
   
-  return data, found_duplicate
+  return row, found_duplicate
 
 def get_name(uid: int):
   name, duplicate = get_items_from_uid(uid, NAME_COLUMN)

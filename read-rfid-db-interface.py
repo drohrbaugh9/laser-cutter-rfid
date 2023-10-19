@@ -12,9 +12,9 @@ try:
   #print(hex(id))
   #print(text)
   
-  data, duplicate = db_interface.get_row_from_uid(id)
+  row, duplicate = db_interface.get_row_from_uid(id)
   
-  name, is_admin = data[1:] # first element is uid; we already have it
+  name, is_admin = row[1:] # first element is uid; we already have it
   
   if name: print("Hello, %s" % name)
   if is_admin == 1: print("you are an admin!")
