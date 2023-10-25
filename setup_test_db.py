@@ -5,11 +5,10 @@ def setup():
   testdb = sqlite3.connect("test.db")
   cur = testdb.cursor()
   
-  # delete old table
-  try:
-    cur.execute("DROP TABLE users")
-  except sqlite3.OperationalError:
-    pass
+  # delete old tables
+  cur.execute("DROP TABLE IF EXISTS users")
+  cur.execute("DROP TABLE IF EXISTS users_log")
+  cur.execute("DROP TABLE IF EXISTS laser_log")
   
   # create new table and fill in
   cur.execute("CREATE TABLE users(ramcard_uid, fullname, is_admin, expiration_date)")
@@ -27,9 +26,12 @@ def setup():
       (86080826340, 'Test User', 0, %d),
       (151493474601, 'Duplicate Admin', 1, %d)
   """ % (expiration_date, date_in_the_past, date_in_the_past, expiration_date, expiration_date))
-  testdb.commit()
   
-  # more stuff here?
+  cur.execute("CREATE TABLE users_log(timestamp, action, data)")
+  
+  cur.execute("CREATE TABLE laser_log(timestamp, action, data)")
+  
+  testdb.commit()
   
   testdb.close()
 

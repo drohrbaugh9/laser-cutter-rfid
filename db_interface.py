@@ -2,6 +2,11 @@ import sqlite3
 import datetime
 
 class db_interface:
+
+  ADD_ACTION = "ADD"
+  UPDATE_ACTION = "UPDATE"
+  DELETE_ACTION = "DELETE"
+  REMOVEEXPIRED_ACTION = "REMOVE EXPIRED"
   
   def __init__(self, db_name: str):
     self.connect_to_db(db_name)
@@ -16,16 +21,24 @@ class db_interface:
     
     self.current_db = db_name
   
-  def _delete_entry(self, uid: int):
-    self._db_cursor.execute("DELETE FROM users WHERE ramcard_uid = ?", [uid])
-  
   def delete_entry(self, uid: int):
-    self._delete_entry(uid)
+    self._db_cursor.execute("DELETE FROM users WHERE ramcard_uid = ?", [uid])
+    
+    self._db_cursor.execute("INSERT INTO users_log VALUES (?, ?, ?)", [int(datetime.datetime.today().timestamp()), self.DELETE_ACTION, uid])
+    
     self._db.commit()
 
   def _add_entry(self, ramcard_uid: int, fullname: str, is_admin: int):
-    self._db_cursor.execute("DELETE FROM users WHERE ramcard_uid = ?", [ramcard_uid])
+    action = self.ADD_ACTION
+    
+    res = self._db_cursor.execute("DELETE FROM users WHERE ramcard_uid = ?", [ramcard_uid])
+    
+    if res.rowcount > 0:
+      action = self.UPDATE_ACTION
+    
     self._db_cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?)", [ramcard_uid, fullname, is_admin, calculate_expiration_date_timestamp()])
+    
+    self._db_cursor.execute("INSERT INTO users_log VALUES (?, ?, ?)", [int(datetime.datetime.today().timestamp()), action, ramcard_uid])
     
     self._db.commit()
 
@@ -69,11 +82,19 @@ class db_interface:
   
   # only remove expired users, leave expired admins
   def remove_expired_users(self):
-    self._db_cursor.execute("DELETE FROM users WHERE is_admin = 0 AND expiration_date < ?", [int(datetime.datetime.today().timestamp())])
+    res = self._db_cursor.execute("DELETE FROM users WHERE is_admin = 0 AND expiration_date < ?", [int(datetime.datetime.today().timestamp())])
+    
+    self._db_cursor.execute("INSERT INTO users_log VALUES (?, ?, ?)", [int(datetime.datetime.today().timestamp()), self.REMOVEEXPIRED_ACTION, res.rowcount])
+    
+    self._db.commit()
   
   # remove all expired entries, admins included
   def remove_expired_entries(self):
-    self._db_cursor.execute("DELETE FROM users WHERE expiration_date < ?", [int(datetime.datetime.today().timestamp())])
+    res = self._db_cursor.execute("DELETE FROM users WHERE expiration_date < ?", [int(datetime.datetime.today().timestamp())])
+    
+    self._db_cursor.execute("INSERT INTO users_log VALUES (?, ?, ?)", [int(datetime.datetime.today().timestamp()), self.REMOVEEXPIRED_ACTION, res.rowcount])
+    
+    self._db.commit()
   
   def close(self):
     self._db.close()
@@ -120,3 +141,19 @@ def calculate_expiration_date_timestamp():
   now = datetime.datetime.today()
   six_months = datetime.timedelta(days = 180)
   return int((now + six_months).timestamp())
+  
+
+def print_users_table(db_name):
+  db = sqlite3.connect(db_name)
+  res = db.cursor().execute("SELECT * FROM users")
+  print(res.fetchall())
+
+def print_users_log_table(db_name):
+  db = sqlite3.connect(db_name)
+  res = db.cursor().execute("SELECT * FROM users_log")
+  print(res.fetchall())
+
+def print_laser_log_table(db_name):
+  db = sqlite3.connect(db_name)
+  res = db.cursor().execute("SELECT * FROM laser_log")
+  print(res.fetchall())

@@ -47,6 +47,18 @@ class test_db_interface(db_interface.db_interface):
     assert(row[2] == 2)
     assert(duplicate == False)
   
+  def test_log_add_entry(self):
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.ADD_ACTION])
+    
+    row = res.fetchone()
+    
+    assert(row[1] == self.ADD_ACTION)
+    assert(row[2] == 0x010203)
+    
+    duplicate = res.fetchone()
+    
+    assert(not duplicate)
+  
   def test_update_entry(self):
     self._add_entry(0x010203, "test_update_entry", 3)
     
@@ -57,10 +69,34 @@ class test_db_interface(db_interface.db_interface):
     assert(row[2] == 3)
     assert(duplicate == False)
   
+  def test_log_update_entry(self):
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.UPDATE_ACTION])
+    
+    row = res.fetchone()
+    
+    assert(row[1] == self.UPDATE_ACTION)
+    assert(row[2] == 0x010203)
+    
+    duplicate = res.fetchone()
+    
+    assert(not duplicate)
+  
   def test_delete_entry(self):
     self.delete_entry(0x010203)
     
     assert(self.check_uid(0x010203) == False)
+  
+  def test_log_delete_entry(self):
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.DELETE_ACTION])
+    
+    row = res.fetchone()
+    
+    assert(row[1] == self.DELETE_ACTION)
+    assert(row[2] == 0x010203)
+    
+    duplicate = res.fetchone()
+    
+    assert(not duplicate)
   
   def test_duplicate_check_after_manual_delete(self):
     self._db_cursor.execute("DELETE FROM users WHERE fullname = ?", ['Duplicate Admin'])
@@ -82,6 +118,17 @@ class test_db_interface(db_interface.db_interface):
     res = self._db_cursor.execute("SELECT * FROM users WHERE fullname = ?", ['Expired Admin'])
     assert(len(res.fetchall()) != 0)
   
+  def test_log_remove_expired_users(self):
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.REMOVEEXPIRED_ACTION])
+    
+    row = res.fetchone()
+    
+    assert(row[1] == self.REMOVEEXPIRED_ACTION)
+    assert(row[2] == 1)
+    
+    duplicate = res.fetchone()
+    assert(not duplicate)
+  
   def test_remove_expired_entries(self):
     self.remove_expired_entries()
     
@@ -91,6 +138,22 @@ class test_db_interface(db_interface.db_interface):
     
     res = self._db_cursor.execute("SELECT * FROM users WHERE fullname = ?", ['Expired Admin'])
     assert(len(res.fetchall()) == 0)
+  
+  def test_log_remove_expired_entries(self):
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.REMOVEEXPIRED_ACTION])
+    
+    row = res.fetchone()
+    
+    assert(row[1] == self.REMOVEEXPIRED_ACTION)
+    assert(row[2] == 1)
+    
+    row = res.fetchone() # TODO if test_remove_expired_users is not run, there won't be another entry and these asserts will fail
+    
+    assert(row[1] == self.REMOVEEXPIRED_ACTION)
+    assert(row[2] == 1)
+    
+    duplicate = res.fetchone()
+    assert(not duplicate)
 
 def main():
   setup_test_db.setup()
@@ -108,15 +171,25 @@ def main():
   
   db.test_add_entry()
   
+  db.test_log_add_entry()
+  
   db.test_update_entry()
+  
+  db.test_log_update_entry()
   
   db.test_delete_entry()
   
   db.test_duplicate_check_after_manual_delete()
   
+  db.test_log_delete_entry()
+  
   db.test_remove_expired_users()
   
+  db.test_log_remove_expired_users()
+  
   db.test_remove_expired_entries()
+  
+  db.test_log_remove_expired_entries()
 
 if __name__ == "__main__":
   main()
