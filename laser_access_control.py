@@ -7,14 +7,15 @@ import RPi_I2C_driver as lcd_driver
 import time
 
 LASER_OFF_POLLING_RATE_SECONDS = 0.5
-LASER_ON_POLLING_RATE_SECONDS  = 10
-LASER_ON_GRACE_PERIOD_SECONDS  = 60
+LASER_ON_POLLING_RATE_SECONDS  = 1
+LASER_ON_GRACE_PERIOD_SECONDS  = 6
 
 def main():
   
   GPIO.setmode(GPIO.BOARD)
   GPIO.setwarnings(False)
   GPIO.setup(8, GPIO.OUT, initial=GPIO.LOW)
+  GPIO.setup(10, GPIO.IN)
   
   reader = SimpleMFRC522()
   
@@ -27,9 +28,15 @@ def main():
     
     while True:
       
+      if GPIO.input(10):
+        time.sleep(LASER_OFF_POLLING_RATE_SECONDS)
+        continue
+      
       uid = reader.read_id_no_block()
       
       if not uid:
+        lcd.display_string("scan your", 1)
+        lcd.display_string("RamCard to use", 2)
         time.sleep(LASER_OFF_POLLING_RATE_SECONDS)
         continue
       
@@ -55,6 +62,13 @@ def main():
       while True:
         time.sleep(LASER_ON_POLLING_RATE_SECONDS)
         
+        if GPIO.input(10):
+          GPIO.output(8, GPIO.LOW) # laser and chiller OFF
+          lcd.display_string("DONE", 2)
+          time.sleep(2)
+          #lcd.lcd_clear()
+          break
+        
         uid = reader.read_id_no_block()
         
         if not uid: uid = reader.read_id_no_block() # try again immediately if first read failed
@@ -62,7 +76,7 @@ def main():
         if uid:
           row, duplicate = db.get_row_from_uid(uid)
           
-          if row
+          if row:
             name = db._get_name(row)
             lcd.display_string(name, 1)
             
@@ -91,8 +105,6 @@ def main():
           time_str = "%d sec to return" % ((max_times_card_missing - times_card_missing) * LASER_ON_POLLING_RATE_SECONDS)
           lcd.lcd_display_string(time_str, 2)
           continue
-        
-        # TODO: need a way for user to indicate that they are done
   
   finally:
     lcd.lcd_clear()
@@ -124,7 +136,7 @@ class my_lcd(lcd_driver.lcd):
       self.lcd_clear()
   
   def display_uid_authorized(self):
-    lcd.display_string("AUTHORIZED", 2)
+    self.display_string("AUTHORIZED", 2)
 
 if __name__ == "__main__":
   main()
