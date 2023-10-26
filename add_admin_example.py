@@ -5,7 +5,7 @@ from mfrc522 import SimpleMFRC522
 reader = SimpleMFRC522()
 
 import db_interface
-db = db_interface.db_interface("first.db")
+db = db_interface.db_interface("prod.db")
 
 try:
   fullname = input("enter your full name: ")
