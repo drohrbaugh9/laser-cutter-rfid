@@ -19,7 +19,7 @@ def main():
   
   reader = SimpleMFRC522()
   
-  db = db_interface.db_interface("prod.db")
+  db = db_interface.db_interface("/home/pi/senior_design_FA23/laser-cutter-rfid/prod.db")
   
   lcd = my_lcd()
   lcd.setup()
@@ -28,11 +28,14 @@ def main():
     
     while True:
       
-      if GPIO.input(10):
-        time.sleep(LASER_OFF_POLLING_RATE_SECONDS)
-        continue
-      
       uid = reader.read_id_no_block()
+      
+      if GPIO.input(10):
+        while GPIO.input(10) or uid:
+          time.sleep(LASER_OFF_POLLING_RATE_SECONDS)
+          uid = reader.read_id_no_block()
+          if not uid: uid = reader.read_id_no_block()
+        time.sleep(2)
       
       if not uid:
         lcd.display_string("scan your", 1)
@@ -58,6 +61,7 @@ def main():
       
       times_card_missing = 0
       max_times_card_missing = LASER_ON_GRACE_PERIOD_SECONDS / LASER_ON_POLLING_RATE_SECONDS
+      current_user_uid = uid
       
       while True:
         time.sleep(LASER_ON_POLLING_RATE_SECONDS)
@@ -80,8 +84,8 @@ def main():
             name = db._get_name(row)
             lcd.display_string(name, 1)
             
-            if db._check_uid(row):
-              #if times_card_missing >= 2: lcd.lcd_clear()
+            if uid == current_user_uid or db._check_uid(row):
+              current_user_uid = uid
               times_card_missing = 0
               lcd.display_uid_authorized()
               continue
