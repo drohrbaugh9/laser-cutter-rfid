@@ -126,7 +126,8 @@ class my_lcd(lcd_driver.lcd):
     self.lcd_display_string(padded_str, row)
   
   def display_uid_not_recognized(self, clear = True):
-    self.display_string("not recognized", 1)
+    self.display_string("card", 1)
+    self.display_string("not recognized", 2)
     
     if clear:
       time.sleep(2)
