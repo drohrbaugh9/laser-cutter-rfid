@@ -3,25 +3,34 @@
 import RPi.GPIO as GPIO
 from mfrc522 import SimpleMFRC522 # /usr/local/lib/python3.9/dist-packages/mfrc522
 import db_interface
-import RPi_I2C_driver as lcd_driver
+import RPi_I2C_driver as lcd_driver # https://gist.github.com/DenisFromHR/cc863375a6e19dce359d
 import time
 
 LASER_OFF_POLLING_RATE_SECONDS = 0.5
 LASER_ON_POLLING_RATE_SECONDS  = 1
 LASER_ON_GRACE_PERIOD_SECONDS  = 6
 
+LASER_RELAY_PIN_NUMBER = 8
+
+DONE_BUTTON_PIN_NUMBER = 10
+#UP_BUTTON_PIN_NUMBER = ??
+#DOWN_BUTTON_PIN_NUMBER = ??
+#NEXT_BUTTON_PIN_NUMBER = ??
+
 def main():
   
   # -- GPIO setup --
   GPIO.setmode(GPIO.BOARD)
   GPIO.setwarnings(False)
-  GPIO.setup(8, GPIO.OUT, initial=GPIO.LOW)
-  GPIO.setup(10, GPIO.IN)
+  GPIO.setup(LASER_RELAY_PIN_NUMBER, GPIO.OUT, initial=GPIO.LOW)
+  GPIO.setup(DONE_BUTTON_PIN_NUMBER, GPIO.IN)
   
   # -- rfid setup --
   reader = SimpleMFRC522()
   
   # connect to database
+  #  use absolute path because when this script runs at boot, it is not launched
+  #  from this folder that it is in
   db = db_interface.db_interface("/home/pi/senior_design_FA23/laser-cutter-rfid/prod.db")
   
   # -- LCD setup --
@@ -36,10 +45,10 @@ def main():
       
       # if the DONE button is pressed
       #  because a user just finished using the laser cutter ...
-      if GPIO.input(10):
+      if GPIO.input(DONE_BUTTON_PIN_NUMBER):
         # ... wait for it to be released AND
         #  wait for the user to remove their card
-        while GPIO.input(10) or uid:
+        while GPIO.input(DONE_BUTTON_PIN_NUMBER) or uid:
           time.sleep(LASER_OFF_POLLING_RATE_SECONDS)
           uid = reader.read_id_no_block()
           if not uid: uid = reader.read_id_no_block()
@@ -86,7 +95,7 @@ def main():
       
       # this user is authorized, so turn on the laser
       lcd.display_uid_authorized()
-      GPIO.output(8, GPIO.HIGH)
+      GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.HIGH)
       
       times_card_missing = 0
       max_times_card_missing = LASER_ON_GRACE_PERIOD_SECONDS / LASER_ON_POLLING_RATE_SECONDS
@@ -96,9 +105,9 @@ def main():
         time.sleep(LASER_ON_POLLING_RATE_SECONDS)
         
         # if the user is pressing the DONE button ...
-        if GPIO.input(10):
+        if GPIO.input(DONE_BUTTON_PIN_NUMBER):
           # ... turn off the laser and break out of this inner while loop
-          GPIO.output(8, GPIO.LOW)
+          GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.LOW)
           lcd.display_string("DONE", 2)
           time.sleep(2)
           #lcd.lcd_clear()
@@ -126,9 +135,21 @@ def main():
               continue
             
             lcd.display_uid_not_authorized(clear = False)
+            
+            # the card detected is not authorized,
+            #  so increment the number of times a check has not detected an authorized card
+            #  and go back to the top of this inner while loop
+            times_card_missing += 1
+            continue
           
           else:
             lcd.display_uid_not_recognized(clear = False)
+            
+            # the card detected is not recognized,
+            #  so increment the number of times a check has not detected an authorized card
+            #  and go back to the top of this inner while loop
+            times_card_missing += 1
+            continue
         
         # a card is not present,
         #  so increment the number of times a check has not detected a card
@@ -138,7 +159,7 @@ def main():
         #  and break out of this inner while loop
         if times_card_missing > max_times_card_missing:
           lcd.display_string("time up!", 2)
-          GPIO.output(8, GPIO.LOW) # laser and chiller OFF
+          GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.LOW) # laser and chiller OFF
           time.sleep(2)
           lcd.lcd_clear()
           break
