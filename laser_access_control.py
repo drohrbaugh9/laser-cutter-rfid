@@ -8,7 +8,7 @@ import time
 
 LASER_OFF_POLLING_RATE_SECONDS = 0.5
 LASER_ON_POLLING_RATE_SECONDS  = 1
-LASER_ON_GRACE_PERIOD_SECONDS  = 6
+LASER_ON_GRACE_PERIOD_SECONDS  = 20
 
 LASER_RELAY_PIN_NUMBER = 8
 
@@ -17,6 +17,10 @@ DONE_BUTTON_PIN_NUMBER = 10
 #DOWN_BUTTON_PIN_NUMBER = ??
 #NEXT_BUTTON_PIN_NUMBER = ??
 
+RED_LED_PIN_NUMBER = 32
+GREEN_LED_PIN_NUMBER = 33
+BLUE_LED_PIN_NUMBER = 35
+
 def main():
   
   # -- GPIO setup --
@@ -24,6 +28,10 @@ def main():
   GPIO.setwarnings(False)
   GPIO.setup(LASER_RELAY_PIN_NUMBER, GPIO.OUT, initial=GPIO.LOW)
   GPIO.setup(DONE_BUTTON_PIN_NUMBER, GPIO.IN)
+  
+  GPIO.setup(RED_LED_PIN_NUMBER, GPIO.OUT); red = GPIO.PWM(RED_LED_PIN_NUMBER, 2); red.start(0)
+  GPIO.setup(GREEN_LED_PIN_NUMBER, GPIO.OUT); green = GPIO.PWM(GREEN_LED_PIN_NUMBER, 2); green.start(0)
+  GPIO.setup(BLUE_LED_PIN_NUMBER, GPIO.OUT); blue = GPIO.PWM(BLUE_LED_PIN_NUMBER, 2); blue.start(0)
   
   # -- rfid setup --
   reader = SimpleMFRC522()
@@ -60,6 +68,9 @@ def main():
         #  and then go back to the top of this while loop
         lcd.display_string("scan your", 1)
         lcd.display_string("RamCard to use", 2)
+        blue.ChangeDutyCycle(100)
+        red.ChangeDutyCycle(0)
+        green.ChangeDutyCycle(0)
         time.sleep(LASER_OFF_POLLING_RATE_SECONDS)
         continue
       
@@ -69,6 +80,8 @@ def main():
       if not row:
         # ... indicate that the card is not recognized
         #  and then go back to the top of this while loop
+        red.ChangeDutyCycle(100)
+        blue.ChangeDutyCycle(0)
         lcd.display_uid_not_recognized()
         continue
       
@@ -82,6 +95,8 @@ def main():
       if not db._check_uid(row):
         # ... indicate that this user is not authorized
         # and then go back to the top of this while loop
+        red.ChangeDutyCycle(100)
+        blue.ChangeDutyCycle(0)
         lcd.display_uid_not_authorized()
         continue
       
@@ -95,6 +110,8 @@ def main():
       
       # this user is authorized, so turn on the laser
       lcd.display_uid_authorized()
+      green.ChangeDutyCycle(100)
+      blue.ChangeDutyCycle(0)
       GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.HIGH)
       
       times_card_missing = 0
@@ -104,13 +121,28 @@ def main():
       while True:
         time.sleep(LASER_ON_POLLING_RATE_SECONDS)
         
+        display_card_missing = True
+        
         # if the user is pressing the DONE button ...
         if GPIO.input(DONE_BUTTON_PIN_NUMBER):
           # ... turn off the laser and break out of this inner while loop
           GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.LOW)
+          lcd.display_string(name, 1)
           lcd.display_string("DONE", 2)
           time.sleep(2)
           #lcd.lcd_clear()
+          break
+        
+        # if the card is missing for too long, shut off the laser
+        #  and break out of this inner while loop
+        if times_card_missing >= max_times_card_missing:
+          lcd.display_string("", 1)
+          lcd.display_string("time up!", 2)
+          GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.LOW) # laser and chiller OFF
+          red.ChangeDutyCycle(100)
+          green.ChangeDutyCycle(0)
+          time.sleep(2)
+          lcd.lcd_clear()
           break
         
         # begin checking that a card is still present
@@ -131,45 +163,48 @@ def main():
             if uid == current_user_uid or db._check_uid(row):
               current_user_uid = uid
               times_card_missing = 0
+              green.ChangeDutyCycle(100)
+              red.ChangeDutyCycle(0)
               lcd.display_uid_authorized()
               continue
             
-            lcd.display_uid_not_authorized(clear = False)
+            red.ChangeDutyCycle(100)
+            green.ChangeDutyCycle(0)
+            display_card_missing = False
+            lcd.display_uid_not_authorized(clear = False, row = 1)
             
             # the card detected is not authorized,
             #  so increment the number of times a check has not detected an authorized card
             #  and go back to the top of this inner while loop
-            times_card_missing += 1
-            continue
+            #times_card_missing += 1
+            #continue
           
           else:
-            lcd.display_uid_not_recognized(clear = False)
+            red.ChangeDutyCycle(100)
+            green.ChangeDutyCycle(0)
+            display_card_missing = False
+            lcd.display_uid_not_recognized(clear = False, row = 1)
             
             # the card detected is not recognized,
             #  so increment the number of times a check has not detected an authorized card
             #  and go back to the top of this inner while loop
-            times_card_missing += 1
-            continue
+            #times_card_missing += 1
+            #continue
         
         # a card is not present,
         #  so increment the number of times a check has not detected a card
         times_card_missing += 1
         
-        # if the card is missing for too long, shut off the laser
-        #  and break out of this inner while loop
-        if times_card_missing > max_times_card_missing:
-          lcd.display_string("time up!", 2)
-          GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.LOW) # laser and chiller OFF
-          time.sleep(2)
-          lcd.lcd_clear()
-          break
+        if display_card_missing:
+          red.ChangeDutyCycle(50) # blink at 2 Hz
+          green.ChangeDutyCycle(0)
         
         # alert the user that they need to return their card to the reader
         #  and update how much time they have left to do so
         if times_card_missing > 0:
-          lcd.display_string("card missing!", 1)
+          if display_card_missing: lcd.display_string("card missing!", 1)
           time_str = "%d sec to return" % ((max_times_card_missing - times_card_missing) * LASER_ON_POLLING_RATE_SECONDS)
-          lcd.lcd_display_string(time_str, 2)
+          lcd.display_string(time_str, 2)
           continue
   
   # if this program errors out,
@@ -192,16 +227,19 @@ class my_lcd(lcd_driver.lcd):
     padded_str = short_str + (' ' * (16 - len(short_str)))
     self.lcd_display_string(padded_str, row)
   
-  def display_uid_not_recognized(self, clear = True):
-    self.display_string("card", 1)
-    self.display_string("not recognized", 2)
+  def display_uid_not_recognized(self, clear = True, row = 2):
+    if row == 2:
+      self.display_string("card", 1)
+      self.display_string("not recognized", 2)
+    else:
+      self.display_string("not recognized", 1)
     
     if clear:
       time.sleep(2)
       self.lcd_clear()
   
-  def display_uid_not_authorized(self, clear = True):
-    self.display_string("not authorized", 2)
+  def display_uid_not_authorized(self, clear = True, row = 2):
+    self.display_string("not authorized", row)
     
     if clear:
       time.sleep(2)
