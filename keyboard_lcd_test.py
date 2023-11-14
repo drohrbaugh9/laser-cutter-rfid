@@ -1,54 +1,55 @@
 import keyboard
 import time
 
-letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ' ']
+DEV = False
+
+def do_nothing(event):
+  pass
 
 def my_callback(event):
-  global name, current_letter
-  
-  if event.name == 'up':
-    current_letter -= 1
-    if current_letter < 0:
-      current_letter = len(letters) - 1
-  
-  if event.name == 'down':
-    current_letter += 1
-    if current_letter >= len(letters):
-      current_letter = 0
+  global name, name_done
   
   if event.name == 'enter':
-    name += letters[current_letter]
+    name_done = True
+    return
   
-  if event.name == 'esc':
-    print(name)
+  elif event.name == 'backspace':
+    name = name[:-1]
+  
+  elif event.name == 'delete':
+    name = ''
+  
+  elif event.name == 'space':
+    name += ' '
+  
+  elif len(event.name) == 1:
+    name += event.name
 
 def main():
-  global name, current_letter
+  global name, name_done
   
   name = ""
-  current_letter = 0
+  name_done = False
   
-  #lcd = my_lcd()
-  lcd = lcd_linux_terminal_emulator()
+  lcd = -1
+  if DEV:
+    lcd = lcd_linux_terminal_emulator()
+  else:
+    lcd = my_lcd()
+  
   lcd.setup()
 
   keyboard.on_press(my_callback)
   
   display_current = False
 
-  while(True):
-    name_to_display = name
-    if display_current: name_to_display += letters[current_letter]
-    #display_current = not display_current
-    
-    lcd.display_string(name_to_display, 1)
-    cursor_letter = letters[current_letter]
-    if cursor_letter == ' ': cursor_letter = '_'
-    lcd.display_string((len(name) * ' ') + cursor_letter, 2)
-    
+  while not name_done:
+    lcd.display_string(name, 1)
     time.sleep(0.25)
+  
+  keyboard.on_press(do_nothing)
 
-'''
+#'''
 import RPi_I2C_driver as lcd_driver
 
 class my_lcd(lcd_driver.lcd):
@@ -60,7 +61,7 @@ class my_lcd(lcd_driver.lcd):
   def display_string(self, short_str, row):
     padded_str = short_str + (' ' * (16 - len(short_str)))
     self.lcd_display_string(padded_str, row)
-'''
+#'''
 
 class lcd_linux_terminal_emulator:
   
