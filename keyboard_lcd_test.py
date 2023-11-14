@@ -58,9 +58,13 @@ class my_lcd(lcd_driver.lcd):
     self.lcd_clear()
     self.backlight(1)
   
-  def display_string(self, short_str, row):
-    padded_str = short_str + (' ' * (16 - len(short_str)))
-    self.lcd_display_string(padded_str, row)
+  def display_string(self, string, row):
+    formatted_str = string
+    if len(string) < 16:
+      formatted_str = string + (' ' * (16 - len(string)))
+    elif len(string) > 16:
+      formatted_str = string[-16:]
+    self.lcd_display_string(formatted_str, row)
 #'''
 
 class lcd_linux_terminal_emulator:
@@ -72,9 +76,13 @@ class lcd_linux_terminal_emulator:
 |                | \n\
  ````````````````  ", flush=True)
   
-  def display_string(self, short_str, row):
-    padded_str = short_str + (' ' * (16 - len(short_str)))
-    print("\x1b[%s;2H%s" % (row + 1, padded_str), flush=True)
+  def display_string(self, string, row):
+    formatted_str = string
+    if len(string) < 16:
+      formatted_str = string + (' ' * (16 - len(string)))
+    elif len(string) > 16:
+      formatted_str = string[-16:]
+    print("\x1b[%s;2H%s" % (row + 1, formatted_str), flush=True)
 
 if __name__ == "__main__":
   main()

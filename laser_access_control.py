@@ -102,7 +102,7 @@ def main():
       
       # TODO process to add a user
       # if the NEXT button is pressed and an admin has scanned their card...
-      '''if GPIO.input(<next button pin number>) and db._is_admin(row):
+      '''if GPIO.input(NEXT_BUTTON_PIN_NUMBER) and db._is_admin(row):
         # ... wait until a different uid is scanned
         #  prompt the user to enter their name with the four buttons
         #  and add them to the database as a user: db.add_user(uid, name)
@@ -216,7 +216,7 @@ def main():
     db.close()
     # TODO print error for debugging purposes?
 
-# TODO move this to its own file
+# TODO move this to its own file and merge with my_lcd from keyboard_lcd_test
 class my_lcd(lcd_driver.lcd):
   
   def setup(self):
