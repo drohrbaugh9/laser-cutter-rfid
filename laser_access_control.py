@@ -45,22 +45,24 @@ def main():
   lcd = my_lcd()
   lcd.setup()
   
+  laser_just_finished_normally = False
+  
   try:
     
     while True:
       
       uid = reader.read_id_no_block()
       
-      # if the DONE button is pressed
-      #  because a user just finished using the laser cutter ...
-      if GPIO.input(DONE_BUTTON_PIN_NUMBER):
-        # ... wait for it to be released AND
-        #  wait for the user to remove their card
-        while GPIO.input(DONE_BUTTON_PIN_NUMBER) or uid:
-          time.sleep(LASER_OFF_POLLING_RATE_SECONDS)
-          uid = reader.read_id_no_block()
-          if not uid: uid = reader.read_id_no_block()
+      # if a user just finished using the laser cutter ...
+      if laser_just_finished_normally:
         time.sleep(2)
+        # ... wait for the user to remove their card
+        lcd.display_string("please remove", 1)
+        lcd.display_string("your RamCard", 2)
+        time.sleep(5)
+        
+        laser_just_finished_normally = False
+        continue
       
       # if no card is detected ...
       if not uid:
@@ -129,7 +131,8 @@ def main():
           GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.LOW)
           lcd.display_string(name, 1)
           lcd.display_string("DONE", 2)
-          time.sleep(2)
+          laser_just_finished_normally = True
+          #time.sleep(2)
           #lcd.lcd_clear()
           break
         
