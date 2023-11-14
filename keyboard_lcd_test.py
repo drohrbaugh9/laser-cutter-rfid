@@ -3,17 +3,23 @@ import time
 
 DEV = False
 
-def do_nothing(event):
-  pass
+shift_pressed = False
+accepting_keyboard_input = False
 
-def my_callback(event):
-  global name, name_done
+def process_key_press(event):
+  global name, name_done, shift_pressed, accepting_keyboard_input
+  
+  if event.name == 'shift':
+    shift_pressed = True
+  
+  if not accepting_keyboard_input:
+    return
   
   if event.name == 'enter':
     name_done = True
     return
   
-  elif event.name == 'backspace':
+  if event.name == 'backspace':
     name = name[:-1]
   
   elif event.name == 'delete':
@@ -23,10 +29,18 @@ def my_callback(event):
     name += ' '
   
   elif len(event.name) == 1:
-    name += event.name
+    if shift_pressed:
+      name += event.name.upper()
+    else:
+      name += event.name
+
+def process_shift_release(event):
+  global shift_pressed
+  
+  shift_pressed = False
 
 def main():
-  global name, name_done
+  global name, name_done, accepting_keyboard_input
   
   name = ""
   name_done = False
@@ -38,16 +52,23 @@ def main():
     lcd = my_lcd()
   
   lcd.setup()
-
-  keyboard.on_press(my_callback)
   
-  display_current = False
-
-  while not name_done:
-    lcd.display_string(name, 1)
-    time.sleep(0.25)
+  keyboard.on_press(process_key_press)
+  keyboard.on_release_key('shift', process_shift_release)
   
-  keyboard.on_press(do_nothing)
+  while(True):
+    accepting_keyboard_input = True
+    
+    while not name_done:
+      lcd.display_string(name, 1)
+      time.sleep(0.25)
+    
+    # soft reset
+    accepting_keyboard_input = False
+    lcd.lcd_clear()
+    name_done = False
+    name = ""
+    time.sleep(5)
 
 #'''
 import RPi_I2C_driver as lcd_driver
