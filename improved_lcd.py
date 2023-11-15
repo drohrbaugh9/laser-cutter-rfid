@@ -16,6 +16,16 @@ class lcd(lcd_driver.lcd):
       formatted_str = string[-16:]
     self.lcd_display_string(formatted_str, row)
   
+  def display_strings(self, string_with_newlines):
+    list_of_strings = string_with_newlines.split('\n')
+    self.display_list_of_strings(list_of_strings)
+  
+  def display_list_of_strings(self, strings):
+    for i in range(1, len(strings)):
+      self.display_string(strings[i -1], 1)
+      self.display_string(strings[i], 2)
+      time.sleep(2)
+  
   def display_uid_not_recognized(self, clear = True, row = 2):
     if row == 2:
       self.display_string("card", 1)

@@ -51,8 +51,6 @@ def main():
     
     while True:
       
-      uid = reader.read_id_no_block()
-      
       # if a user just finished using the laser cutter ...
       if laser_just_finished_normally:
         time.sleep(2)
@@ -63,6 +61,8 @@ def main():
         
         laser_just_finished_normally = False
         continue
+      
+      uid = reader.read_id_no_block()
       
       # if no card is detected ...
       if not uid:
@@ -77,6 +77,68 @@ def main():
         continue
       
       row, duplicate = db.get_row_from_uid(uid)
+      
+      # if the DONE button is pressed
+      if GPIO.input(DONE_BUTTON_PIN_NUMBER):
+        # ... and an admin has scanned their card ...
+        if row and db._is_admin(row):
+          # ... wait until a different uid is scanned
+          red.ChangeDutyCycle(100)
+          blue.ChangeDutyCycle(100)
+          green.ChangeDutyCycle(0)
+          lcd.display_string("adding a user!", 1)
+          lcd.display_string("scan new RamCard", 2)
+          time.sleep(5)
+          uid_to_add = reader.read_id_no_block()
+          if not uid_to_add: uid_to_add = reader.read_id_no_block()
+          
+          if not uid_to_add:
+            lcd.display_string("no card detected", 1)
+            lcd.display_string("admin, re-scan", 2)
+            time.sleep(2)
+            lcd.display_string("admin, re-scan", 1)
+            lcd.display_string("your RamCard", 2)
+            time.sleep(2)
+            continue
+          
+          data, duplicate = db.get_row_from_uid(uid_to_add)
+          if (data):
+            existing_name = db._get_name(data)[:15]
+            lcd.display_list_of_strings(["update entry for", "%s?" % existing_name, "press and hold", "DONE to confirm"])
+            
+            lcd.display_string(existing_name, 1)
+            if not GPIO.input(DONE_BUTTON_PIN_NUMBER):
+              lcd.display_string("entry unchanged", 2)
+              time.sleep(2)
+              continue
+            
+            lcd.display_string("will be updated", 2)
+            time.sleep(2)
+          
+          #  prompt the user to enter their name with the keyboard
+          lcd.display_string("enter your name", 1)
+          lcd.display_string("on the keyboard", 2)
+          time.sleep(2)
+          lcd.display_string("press enter key", 1)
+          lcd.display_string("when done", 2)
+          time.sleep(2)
+          
+          name_to_add = activate_keyboard_and_get_name()
+          
+          #  and add them to the database as a user
+          print("would have added a user with name %s, uid %d" % (name_to_add, uid_to_add))
+          #db.add_user(uid_to_add, name_to_add)
+          continue
+        
+        elif row:
+          lcd.display_string(db._get_name(row)[:16], 1)
+          
+        else:
+          lcd.display_string("card uid:", 1)
+        
+        lcd.display_string(hex(uid), 2)
+        time.sleep(2)
+        continue
       
       # if the uid is not in the database ...
       if not row:
@@ -100,53 +162,6 @@ def main():
         red.ChangeDutyCycle(100)
         blue.ChangeDutyCycle(0)
         lcd.display_uid_not_authorized()
-        continue
-      
-      # if the DONE button is pressed and an admin has scanned their card...
-      if GPIO.input(DONE_BUTTON_PIN_NUMBER) and db._is_admin(row):
-        # ... wait until a different uid is scanned
-        lcd.display_string("adding a user!", 1)
-        lcd.display_string("scan new RamCard", 2)
-        time.sleep(5)
-        uid_to_add = reader.read_id_no_block()
-        if not uid_to_add: uid_to_add = reader.read_id_no_block()
-        
-        if not uid_to_add:
-          lcd.display_string("no card detected", 1)
-          lcd.display_string("admin, re-scan", 2)
-          time.sleep(2)
-          lcd.display_string("admin, re-scan", 1)
-          lcd.display_string("your RamCard", 2)
-          continue
-        
-        data, duplicate = db.get_row_from_uid(uid_to_add)
-        if (data):
-          lcd.display_string("update entry for", 1)
-          existing_name = db._get_name(row)[:15] + "?"
-          lcd.display_string(existing_name, 2)
-          time.sleep(2)
-          lcd.display_string(existing_name, 1)
-          lcd.display_string("press and hold", 2)
-          time.sleep(2)
-          lcd.display_string("press and hold", 1)
-          lcd.display_string("DONE to confirm", 2)
-          time.sleep(1)
-          
-          if not GPIO.input(DONE_BUTTON_PIN_NUMBER):
-            continue
-        
-        #  prompt the user to enter their name with the keyboard
-        lcd.display_string("enter your name", 1)
-        lcd.display_string("on the keyboard", 2)
-        time.sleep(2)
-        lcd.display_string("press enter key", 1)
-        lcd.display_string("when done", 2)
-        
-        name_to_add = activate_keyboard_and_get_name()
-        
-        #  and add them to the database as a user
-        print("would have added a user with name %s, uid %d" % (name_to_add, uid_to_add))
-        #db.add_user(uid_to_add, name_to_add)
         continue
       
       # this user is authorized, so turn on the laser
