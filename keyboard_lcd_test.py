@@ -49,7 +49,8 @@ def main():
   if DEV:
     lcd = lcd_linux_terminal_emulator()
   else:
-    lcd = my_lcd()
+    import improved_lcd
+    lcd = improved_lcd.lcd()
   
   lcd.setup()
   
@@ -69,24 +70,6 @@ def main():
     name_done = False
     name = ""
     time.sleep(5)
-
-#'''
-import RPi_I2C_driver as lcd_driver
-
-class my_lcd(lcd_driver.lcd):
-  
-  def setup(self):
-    self.lcd_clear()
-    self.backlight(1)
-  
-  def display_string(self, string, row):
-    formatted_str = string
-    if len(string) < 16:
-      formatted_str = string + (' ' * (16 - len(string)))
-    elif len(string) > 16:
-      formatted_str = string[-16:]
-    self.lcd_display_string(formatted_str, row)
-#'''
 
 class lcd_linux_terminal_emulator:
   

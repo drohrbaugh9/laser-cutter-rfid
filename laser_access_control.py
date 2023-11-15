@@ -3,7 +3,7 @@
 import RPi.GPIO as GPIO
 from mfrc522 import SimpleMFRC522 # /usr/local/lib/python3.9/dist-packages/mfrc522
 import db_interface
-import RPi_I2C_driver as lcd_driver # https://gist.github.com/DenisFromHR/cc863375a6e19dce359d
+import improved_lcd
 import time
 
 LASER_OFF_POLLING_RATE_SECONDS = 0.5
@@ -13,13 +13,13 @@ LASER_ON_GRACE_PERIOD_SECONDS  = 20
 LASER_RELAY_PIN_NUMBER = 8
 
 DONE_BUTTON_PIN_NUMBER = 10
-#UP_BUTTON_PIN_NUMBER = ??
-#DOWN_BUTTON_PIN_NUMBER = ??
-#NEXT_BUTTON_PIN_NUMBER = ??
 
 RED_LED_PIN_NUMBER = 32
 GREEN_LED_PIN_NUMBER = 33
 BLUE_LED_PIN_NUMBER = 35
+
+def activate_keyboard_and_get_name():
+  return "Test User"
 
 def main():
   
@@ -42,7 +42,7 @@ def main():
   db = db_interface.db_interface("/home/pi/senior_design_FA23/laser-cutter-rfid/prod.db")
   
   # -- LCD setup --
-  lcd = my_lcd()
+  lcd = improved_lcd.lcd()
   lcd.setup()
   
   laser_just_finished_normally = False
@@ -102,13 +102,52 @@ def main():
         lcd.display_uid_not_authorized()
         continue
       
-      # TODO process to add a user
-      # if the NEXT button is pressed and an admin has scanned their card...
-      '''if GPIO.input(NEXT_BUTTON_PIN_NUMBER) and db._is_admin(row):
+      # if the DONE button is pressed and an admin has scanned their card...
+      if GPIO.input(DONE_BUTTON_PIN_NUMBER) and db._is_admin(row):
         # ... wait until a different uid is scanned
-        #  prompt the user to enter their name with the four buttons
-        #  and add them to the database as a user: db.add_user(uid, name)
-        continue'''
+        lcd.display_string("adding a user!", 1)
+        lcd.display_string("scan new RamCard", 2)
+        time.sleep(5)
+        uid_to_add = reader.read_id_no_block()
+        if not uid_to_add: uid_to_add = reader.read_id_no_block()
+        
+        if not uid_to_add:
+          lcd.display_string("no card detected", 1)
+          lcd.display_string("admin, re-scan", 2)
+          time.sleep(2)
+          lcd.display_string("admin, re-scan", 1)
+          lcd.display_string("your RamCard", 2)
+          continue
+        
+        data, duplicate = db.get_row_from_uid(uid_to_add)
+        if (data):
+          lcd.display_string("update entry for", 1)
+          existing_name = db._get_name(row)[:15] + "?"
+          lcd.display_string(existing_name, 2)
+          time.sleep(2)
+          lcd.display_string(existing_name, 1)
+          lcd.display_string("press and hold", 2)
+          time.sleep(2)
+          lcd.display_string("press and hold", 1)
+          lcd.display_string("DONE to confirm", 2)
+          time.sleep(1)
+          
+          if not GPIO.input(DONE_BUTTON_PIN_NUMBER):
+            continue
+        
+        #  prompt the user to enter their name with the keyboard
+        lcd.display_string("enter your name", 1)
+        lcd.display_string("on the keyboard", 2)
+        time.sleep(2)
+        lcd.display_string("press enter key", 1)
+        lcd.display_string("when done", 2)
+        
+        name_to_add = activate_keyboard_and_get_name()
+        
+        #  and add them to the database as a user
+        print("would have added a user with name %s, uid %d" % (name_to_add, uid_to_add))
+        #db.add_user(uid_to_add, name_to_add)
+        continue
       
       # this user is authorized, so turn on the laser
       lcd.display_uid_authorized()
@@ -218,38 +257,6 @@ def main():
     lcd.backlight(0)
     db.close()
     # TODO print error for debugging purposes?
-
-# TODO move this to its own file and merge with my_lcd from keyboard_lcd_test
-class my_lcd(lcd_driver.lcd):
-  
-  def setup(self):
-    self.lcd_clear()
-    self.backlight(1)
-  
-  def display_string(self, short_str, row):
-    padded_str = short_str + (' ' * (16 - len(short_str)))
-    self.lcd_display_string(padded_str, row)
-  
-  def display_uid_not_recognized(self, clear = True, row = 2):
-    if row == 2:
-      self.display_string("card", 1)
-      self.display_string("not recognized", 2)
-    else:
-      self.display_string("not recognized", 1)
-    
-    if clear:
-      time.sleep(2)
-      self.lcd_clear()
-  
-  def display_uid_not_authorized(self, clear = True, row = 2):
-    self.display_string("not authorized", row)
-    
-    if clear:
-      time.sleep(2)
-      self.lcd_clear()
-  
-  def display_uid_authorized(self):
-    self.display_string("AUTHORIZED", 2)
 
 if __name__ == "__main__":
   main()
