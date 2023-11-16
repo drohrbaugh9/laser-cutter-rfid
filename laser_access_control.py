@@ -5,6 +5,7 @@ from mfrc522 import SimpleMFRC522 # /usr/local/lib/python3.9/dist-packages/mfrc5
 import db_interface
 import improved_lcd
 import time
+import keyboard
 
 LASER_OFF_POLLING_RATE_SECONDS = 0.5
 LASER_ON_POLLING_RATE_SECONDS  = 1
@@ -18,10 +19,77 @@ RED_LED_PIN_NUMBER = 32
 GREEN_LED_PIN_NUMBER = 33
 BLUE_LED_PIN_NUMBER = 35
 
-def activate_keyboard_and_get_name():
-  return "Test User"
+# ---------- keyboard handling stuff ---------
+
+shift_pressed = False
+accepting_keyboard_input = False
+
+def activate_keyboard_and_get_name(lcd):
+  global name_from_keyboard, keyboard_done, accepting_keyboard_input
+  
+  name_from_keyboard = ""
+  keyboard_done = False
+  accepting_keyboard_input = True
+  
+  # allow last message to stay for a little while
+  # TODO: move instructions to enter name into here?
+  #  and maybe enable the keyboard before displaying instructions,
+  #  to capture any keys pressed as instructions are being displayed
+  #  if the user knows what to do already
+  time.sleep(2)
+  
+  lcd.lcd_clear()
+  
+  while not keyboard_done:
+    print(name_from_keyboard)
+    lcd.display_string(name_from_keyboard, 1)
+    time.sleep(0.25)
+  
+  accepting_keyboard_input = False
+  keyboard_done = False
+  
+  return name_from_keyboard
+
+def process_key_press(event):
+  global name_from_keyboard, keyboard_done, shift_pressed, accepting_keyboard_input
+  
+  if event.name == 'shift':
+    shift_pressed = True
+  
+  if not accepting_keyboard_input:
+    return
+  
+  if event.name == 'enter':
+    keyboard_done = True
+    return
+  
+  if event.name == 'backspace':
+    name_from_keyboard = name_from_keyboard[:-1]
+  
+  elif event.name == 'delete':
+    name_from_keyboard = ''
+  
+  elif event.name == 'space':
+    name_from_keyboard += ' '
+  
+  elif len(event.name) == 1:
+    if shift_pressed:
+      name_from_keyboard += event.name.upper()
+    else:
+      name_from_keyboard += event.name
+
+def process_shift_release(event):
+  global shift_pressed
+  
+  shift_pressed = False
+
+# ---------- end keyboard handling stuff -----
 
 def main():
+  # -- keyboard setup --
+  
+  keyboard.on_press(process_key_press)
+  keyboard.on_release_key('shift', process_shift_release)
   
   # -- GPIO setup --
   GPIO.setmode(GPIO.BOARD)
@@ -82,6 +150,9 @@ def main():
       if GPIO.input(DONE_BUTTON_PIN_NUMBER):
         # ... and an admin has scanned their card ...
         if row and db._is_admin(row):
+          # TODO: enter a loop here so admin does not have to re-scan their card
+          #  to add multiple users in one go?
+          
           # ... wait until a different uid is scanned
           red.ChangeDutyCycle(100)
           blue.ChangeDutyCycle(100)
@@ -121,13 +192,15 @@ def main():
           time.sleep(2)
           lcd.display_string("press enter key", 1)
           lcd.display_string("when done", 2)
-          time.sleep(2)
           
-          name_to_add = activate_keyboard_and_get_name()
+          name_to_add = activate_keyboard_and_get_name(lcd)
           
           #  and add them to the database as a user
           print("would have added a user with name %s, uid %d" % (name_to_add, uid_to_add))
           #db.add_user(uid_to_add, name_to_add)
+          
+          lcd.display_list_of_strings(["added user", name_to_add[:16], "with uid", hex(uid_to_add)])
+          
           continue
         
         elif row:
