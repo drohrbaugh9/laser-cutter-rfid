@@ -41,7 +41,7 @@ def activate_keyboard_and_get_name(lcd):
   lcd.lcd_clear()
   
   while not keyboard_done:
-    print(name_from_keyboard)
+    #print(name_from_keyboard)
     lcd.display_string(name_from_keyboard, 1)
     time.sleep(0.25)
   
@@ -85,6 +85,13 @@ def process_shift_release(event):
 
 # ---------- end keyboard handling stuff -----
 
+# standardize checking done button
+#  since the button is connected between the input pin and ground
+#  when pressed it will pull the pin LOW
+#  when not pressed, the pin is pulled high by a built-in pull-up resistor on the Pi
+def is_done_button_pressed():
+  return not GPIO.input(DONE_BUTTON_PIN_NUMBER)
+
 def main():
   # -- keyboard setup --
   
@@ -95,7 +102,7 @@ def main():
   GPIO.setmode(GPIO.BOARD)
   GPIO.setwarnings(False)
   GPIO.setup(LASER_RELAY_PIN_NUMBER, GPIO.OUT, initial=GPIO.LOW)
-  GPIO.setup(DONE_BUTTON_PIN_NUMBER, GPIO.IN)
+  GPIO.setup(DONE_BUTTON_PIN_NUMBER, GPIO.IN, pull_up_down=GPIO.PUD_UP) # enable Pi's built-in pull-up resistor for this pin
   
   GPIO.setup(RED_LED_PIN_NUMBER, GPIO.OUT); red = GPIO.PWM(RED_LED_PIN_NUMBER, 2); red.start(0)
   GPIO.setup(GREEN_LED_PIN_NUMBER, GPIO.OUT); green = GPIO.PWM(GREEN_LED_PIN_NUMBER, 2); green.start(0)
@@ -147,7 +154,7 @@ def main():
       row, duplicate = db.get_row_from_uid(uid)
       
       # if the DONE button is pressed
-      if GPIO.input(DONE_BUTTON_PIN_NUMBER):
+      if is_done_button_pressed():
         # ... and an admin has scanned their card ...
         if row and db._is_admin(row):
           # TODO: enter a loop here so admin does not have to re-scan their card
@@ -178,7 +185,7 @@ def main():
             lcd.display_list_of_strings(["update entry for", "%s?" % existing_name, "press and hold", "DONE to confirm"])
             
             lcd.display_string(existing_name, 1)
-            if not GPIO.input(DONE_BUTTON_PIN_NUMBER):
+            if not is_done_button_pressed():
               lcd.display_string("entry unchanged", 2)
               time.sleep(2)
               continue
@@ -196,8 +203,8 @@ def main():
           name_to_add = activate_keyboard_and_get_name(lcd)
           
           #  and add them to the database as a user
-          print("would have added a user with name %s, uid %d" % (name_to_add, uid_to_add))
-          #db.add_user(uid_to_add, name_to_add)
+          #print("would have added a user with name %s, uid %d" % (name_to_add, uid_to_add))
+          db.add_user(uid_to_add, name_to_add)
           
           lcd.display_list_of_strings(["added user", name_to_add[:16], "with uid", hex(uid_to_add)])
           
@@ -253,7 +260,7 @@ def main():
         display_card_missing = True
         
         # if the user is pressing the DONE button ...
-        if GPIO.input(DONE_BUTTON_PIN_NUMBER):
+        if is_done_button_pressed():
           # ... turn off the laser and break out of this inner while loop
           GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.LOW)
           lcd.display_string(name, 1)
@@ -302,27 +309,15 @@ def main():
             green.ChangeDutyCycle(0)
             display_card_missing = False
             lcd.display_uid_not_authorized(clear = False, row = 1)
-            
-            # the card detected is not authorized,
-            #  so increment the number of times a check has not detected an authorized card
-            #  and go back to the top of this inner while loop
-            #times_card_missing += 1
-            #continue
           
           else:
             red.ChangeDutyCycle(100)
             green.ChangeDutyCycle(0)
             display_card_missing = False
             lcd.display_uid_not_recognized(clear = False, row = 1)
-            
-            # the card detected is not recognized,
-            #  so increment the number of times a check has not detected an authorized card
-            #  and go back to the top of this inner while loop
-            #times_card_missing += 1
-            #continue
         
-        # a card is not present,
-        #  so increment the number of times a check has not detected a card
+        # a card is not present or the card is not valid,
+        #  so increment the number of times a check has not detected a valid card
         times_card_missing += 1
         
         if display_card_missing:
