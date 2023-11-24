@@ -4,20 +4,20 @@ import db_interface
 class test_db_interface(db_interface.db_interface):
   
   def test_get_row_from_uid(self):
-    row, duplicate = self.get_row_from_uid(86080826340)
+    row = self.get_row_from_uid(86080826340)
     
-    assert(row[0] == 86080826340)
-    assert(row[1] == 'Test User')
-    assert(row[2] == 0)
-    assert(duplicate == False)
+    assert(row.get_uid() == 86080826340)
+    assert(row.get_name() == 'Test User')
+    assert(row.is_admin() == False)
+    assert(row.has_duplicate() == False)
 
   def test_get_row_from_uid_duplicate(self):
-    row, duplicate = self.get_row_from_uid(151493474601)
+    row = self.get_row_from_uid(151493474601)
     
-    assert(row[0] == 151493474601)
-    assert(row[1] == 'David Rohrbaugh')
-    assert(row[2] == 1)
-    assert(duplicate == True)
+    assert(row.get_uid() == 151493474601)
+    assert(row.get_name() == 'David Rohrbaugh')
+    assert(row.is_admin() == True)
+    assert(row.has_duplicate() == True)
   
   def test_get_name(self):
     assert(self.get_name(151493474601) == "David Rohrbaugh")
@@ -40,41 +40,56 @@ class test_db_interface(db_interface.db_interface):
   def test_add_entry(self):
     self._add_entry(0x010203, "test_add_entry", 2)
     
-    row, duplicate = self.get_row_from_uid(0x010203)
+    row = self.get_row_from_uid(0x010203)
     
-    assert(row[0] == 0x010203)
-    assert(row[1] == "test_add_entry")
-    assert(row[2] == 2)
-    assert(duplicate == False)
+    assert(row.get_uid() == 0x010203)
+    assert(row.get_name() == "test_add_entry")
+    assert(row.is_admin() == False)
+    assert(row.has_duplicate() == False)
   
   def test_log_add_entry(self):
-    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.ADD_ACTION])
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.USER_ADD_ACTION])
     
     row = res.fetchone()
     
-    assert(row[1] == self.ADD_ACTION)
+    assert(row[1] == self.USER_ADD_ACTION)
     assert(row[2] == 0x010203)
     
     duplicate = res.fetchone()
     
     assert(not duplicate)
   
+  def test_add_user_sql_injection_drop_table(self):
+    self.add_user(0xBADDA7A1, "test_sql_injection; DROP TABLE users --")
+    
+    row = self.get_row_from_uid(0xBADDA7A1)
+    
+    assert(row.get_uid() == 0xBADDA7A1)
+    assert(row.get_name() == "test_sql_injection; DROP TABLE users --")
+    assert(row.is_admin() == False)
+    assert(row.has_duplicate() == False)
+  
+  # --- NOT ACTIVE ---
+  # TODO: add assert statements
+  def test_add_user_sql_injection_comment(self):
+    self.add_user(0xBADDA7A2, "test_sql_injection --")
+  
   def test_update_entry(self):
     self._add_entry(0x010203, "test_update_entry", 3)
     
-    row, duplicate = self.get_row_from_uid(0x010203)
+    row = self.get_row_from_uid(0x010203)
     
-    assert(row[0] == 0x010203)
-    assert(row[1] == "test_update_entry")
-    assert(row[2] == 3)
-    assert(duplicate == False)
+    assert(row.get_uid() == 0x010203)
+    assert(row.get_name() == "test_update_entry")
+    assert(row.is_admin() == False)
+    assert(row.has_duplicate() == False)
   
   def test_log_update_entry(self):
-    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.UPDATE_ACTION])
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.USER_UPDATE_ACTION])
     
     row = res.fetchone()
     
-    assert(row[1] == self.UPDATE_ACTION)
+    assert(row[1] == self.USER_UPDATE_ACTION)
     assert(row[2] == 0x010203)
     
     duplicate = res.fetchone()
@@ -87,11 +102,11 @@ class test_db_interface(db_interface.db_interface):
     assert(self.check_uid(0x010203) == False)
   
   def test_log_delete_entry(self):
-    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.DELETE_ACTION])
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.USER_DELETE_ACTION])
     
     row = res.fetchone()
     
-    assert(row[1] == self.DELETE_ACTION)
+    assert(row[1] == self.USER_DELETE_ACTION)
     assert(row[2] == 0x010203)
     
     duplicate = res.fetchone()
@@ -102,12 +117,12 @@ class test_db_interface(db_interface.db_interface):
     self._db_cursor.execute("DELETE FROM users WHERE fullname = ?", ['Duplicate Admin'])
     self._db.commit()
     
-    row, duplicate = self.get_row_from_uid(151493474601)
+    row = self.get_row_from_uid(151493474601)
     
-    assert(row[0] == 151493474601)
-    assert(row[1] == "David Rohrbaugh")
-    assert(row[2] == 1)
-    assert(duplicate == False)
+    assert(row.get_uid() == 151493474601)
+    assert(row.get_name() == "David Rohrbaugh")
+    assert(row.is_admin() == True)
+    assert(row.has_duplicate() == False)
   
   def test_remove_expired_users(self):
     self.remove_expired_users()
@@ -119,11 +134,11 @@ class test_db_interface(db_interface.db_interface):
     assert(len(res.fetchall()) != 0)
   
   def test_log_remove_expired_users(self):
-    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.REMOVEEXPIRED_ACTION])
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.USER_REMOVEEXPIRED_ACTION])
     
     row = res.fetchone()
     
-    assert(row[1] == self.REMOVEEXPIRED_ACTION)
+    assert(row[1] == self.USER_REMOVEEXPIRED_ACTION)
     assert(row[2] == 1)
     
     duplicate = res.fetchone()
@@ -140,16 +155,16 @@ class test_db_interface(db_interface.db_interface):
     assert(len(res.fetchall()) == 0)
   
   def test_log_remove_expired_entries(self):
-    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.REMOVEEXPIRED_ACTION])
+    res = self._db_cursor.execute("SELECT * FROM users_log WHERE action = ?", [self.USER_REMOVEEXPIRED_ACTION])
     
     row = res.fetchone()
     
-    assert(row[1] == self.REMOVEEXPIRED_ACTION)
+    assert(row[1] == self.USER_REMOVEEXPIRED_ACTION)
     assert(row[2] == 1)
     
     row = res.fetchone() # TODO if test_remove_expired_users is not run, there won't be another entry and these asserts will fail
     
-    assert(row[1] == self.REMOVEEXPIRED_ACTION)
+    assert(row[1] == self.USER_REMOVEEXPIRED_ACTION)
     assert(row[2] == 1)
     
     duplicate = res.fetchone()
@@ -172,6 +187,10 @@ def main():
   db.test_add_entry()
   
   db.test_log_add_entry()
+  
+  db.test_add_user_sql_injection_drop_table()
+  
+  #db.test_add_user_sql_injection_comment()
   
   db.test_update_entry()
   
