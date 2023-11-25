@@ -92,12 +92,12 @@ def main():
         lcd.display_list_of_strings(["scan your", "RamCard to use"], sleep_time=LASER_OFF_POLLING_RATE_SECONDS)
         continue
       
-      row, duplicate = db.get_row_from_uid(uid)
+      row = db.get_row_from_uid(uid)
       
       # if the DONE button is pressed
       if is_done_button_pressed():
         # ... and an admin has scanned their card ...
-        if row and db._is_admin(row):
+        if row and row.is_admin():
           # TODO: enter a loop here so admin does not have to re-scan their card
           #  to add multiple users in one go?
           
@@ -114,9 +114,9 @@ def main():
             lcd.display_list_of_strings(["no card detected", "admin, re-scan", "your RamCard"])
             continue
           
-          data, duplicate = db.get_row_from_uid(uid_to_add)
+          data = db.get_row_from_uid(uid_to_add)
           if (data):
-            existing_name = db._get_name(data)[:15]
+            existing_name = data.get_name()[:15]
             lcd.display_list_of_strings(["update entry for", "%s?" % existing_name, "press and hold", "DONE to confirm"])
             
             lcd.display_string(existing_name, 1)
@@ -139,7 +139,7 @@ def main():
           continue
         
         elif row:
-          lcd.display_string(db._get_name(row), 1, display_last_16=False)
+          lcd.display_string(row.get_name(), 1, display_last_16=False)
           
         else:
           lcd.display_string("card uid:", 1)
@@ -154,12 +154,13 @@ def main():
         #  and then go back to the top of this while loop
         red.ChangeDutyCycle(100)
         blue.ChangeDutyCycle(0)
-        lcd.display_uid_not_recognized()
+        lcd.display_list_of_strings("card", lcd.NOT_RECOGNIZED)
+        lcd.clear()
         continue
       
       # this uid is in the database,
       #  so get corresponding name from uid and display it
-      name = db._get_name(row)
+      name = row.get_name()
       lcd.display_string(name, 1)
       
       # if this user is not authorized to use the laser
@@ -169,11 +170,13 @@ def main():
         # and then go back to the top of this while loop
         red.ChangeDutyCycle(100)
         blue.ChangeDutyCycle(0)
-        lcd.display_uid_not_authorized()
+        lcd.display_string(lcd.NOT_AUTHORIZED, 2)
+        time.sleep(2)
+        lcd.clear()
         continue
       
       # this user is authorized, so turn on the laser
-      lcd.display_uid_authorized()
+      display_string(self.AUTHORIZED, 2)
       green.ChangeDutyCycle(100)
       blue.ChangeDutyCycle(0)
       GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.HIGH)
@@ -195,7 +198,7 @@ def main():
           lcd.display_string("DONE", 2)
           laser_just_finished_normally = True
           #time.sleep(2)
-          #lcd.lcd_clear()
+          #lcd.clear()
           break
         
         # if the card is missing for too long, shut off the laser
@@ -207,7 +210,7 @@ def main():
           red.ChangeDutyCycle(100)
           green.ChangeDutyCycle(0)
           time.sleep(2)
-          lcd.lcd_clear()
+          lcd.clear()
           break
         
         # begin checking that a card is still present
@@ -222,13 +225,13 @@ def main():
             green.ChangeDutyCycle(100)
             red.ChangeDutyCycle(0)
             lcd.display_string(name, 1)
-            lcd.display_uid_authorized()
+            lcd.display_string(lcd.AUTHORIZED, 2)
             continue
           
-          row, duplicate = db.get_row_from_uid(uid)
+          row = db.get_row_from_uid(uid)
           
           if row:
-            name = db._get_name(row)
+            name = row.get_name()
             lcd.display_string(name, 1)
             
             # if the new uid is authorized,
@@ -238,19 +241,19 @@ def main():
               times_card_missing = 0
               green.ChangeDutyCycle(100)
               red.ChangeDutyCycle(0)
-              lcd.display_uid_authorized()
+              display_string(self.AUTHORIZED, 2)
               continue
             
             red.ChangeDutyCycle(100)
             green.ChangeDutyCycle(0)
             display_card_missing = False
-            lcd.display_uid_not_authorized(clear = False, row = 1)
+            lcd.display_string(lcd.NOT_AUTHORIZED, 1)
           
           else:
             red.ChangeDutyCycle(100)
             green.ChangeDutyCycle(0)
             display_card_missing = False
-            lcd.display_uid_not_recognized(clear = False, row = 1)
+            lcd.display_string(lcd.NOT_RECOGNIZED, 1)
         
         # a card is not present or the card is not valid,
         #  so increment the number of times a check has not detected a valid card
@@ -269,7 +272,7 @@ def main():
   #  "turn off" the lcd and close the connection to the database
   #  before exiting
   finally:
-    lcd.lcd_clear()
+    lcd.clear()
     lcd.backlight(0)
     db.close()
     # TODO print error for debugging purposes?
@@ -288,7 +291,7 @@ def activate_keyboard_and_get_name(lcd):
   
   #  prompt the user to enter their name with the keyboard
   lcd.display_list_of_strings(["enter your name", "on the keyboard", "press enter key", "when done"])
-  lcd.lcd_clear()
+  lcd.clear()
   
   while not keyboard_done:
     lcd.display_string(name_from_keyboard, 1)
