@@ -282,6 +282,8 @@ def main():
 shift_pressed = False
 accepting_keyboard_input = False
 
+shift_chars = {'1':'!', '2':'@', '3':'#', '4':'$', '5':'%', '6':'^', '7':'&', '8':'*', '9':'(', '0':')', '-':'_', '=':'+', '\\':'|', '`':'~', '[':'{', ']':'}', ';':':', '\'':'"', ',':'<', '.':'>', '/':'?'}
+
 def activate_keyboard_and_get_name(lcd):
   global name_from_keyboard, keyboard_done, accepting_keyboard_input
   
@@ -325,7 +327,10 @@ def process_key_press(event):
   
   elif len(event.name) == 1:
     if shift_pressed:
-      name_from_keyboard += event.name.upper()
+      if event.name in shift_chars.keys():
+        name_from_keyboard += shift_chars[event.name]
+      else:
+        name_from_keyboard += event.name.upper()
     else:
       name_from_keyboard += event.name
 
