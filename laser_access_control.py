@@ -68,7 +68,7 @@ def process_shift_release(event):
 #  since the button is connected between the input pin and ground
 #  when pressed it will pull the pin LOW
 #  when not pressed, the pin is pulled high by a built-in pull-up resistor on the Pi
-def is_done_button_pressed(self):
+def is_done_button_pressed():
   return not GPIO.input(DONE_BUTTON_PIN_NUMBER)
 
 class laser_access_control:
@@ -125,14 +125,12 @@ class laser_access_control:
     self.blue.ChangeDutyCycle(b)
   
   def add_user_mode(self):
-    # TODO: enter a loop here so admin does not have to re-scan their card
-    #  to add multiple users in one go?
-    
     # indicate that the system is adding users
     self.set_LED(100, 0, 100) # purple
-    self.lcd.display_list_of_strings(["adding a user!", "scan new RamCard"], sleep_time=5)
     
     while True:
+      self.lcd.display_list_of_strings(["adding user! %d" % ADD_USER_TIMEOUT_SECONDS, "scan new RamCard"], sleep_time=0)
+      
       uid_to_add = self.reader.read_id_no_block()
       
       # if a card is not read within ADD_USER_TIMEOUT_SECONDS,
@@ -143,6 +141,7 @@ class laser_access_control:
         uid_to_add = self.reader.read_id_no_block()
         
         timeout -= 1
+        self.lcd.display_string("adding user! %d" % timeout, 1)
         if timeout == 0: return
       
       data = self.db.get_row_from_uid(uid_to_add)
@@ -155,7 +154,8 @@ class laser_access_control:
         if not is_done_button_pressed():
           self.lcd.display_string("entry unchanged", 2)
           time.sleep(2)
-          return
+          self.lcd.display_list_of_strings(["scan new RamCard", "or wait", "%d seconds" % ADD_USER_TIMEOUT_SECONDS, "to exit add mode"])
+          continue
         
         # only change the entry if the DONE button was pressed
         self.lcd.display_string("will be updated", 2)
@@ -169,17 +169,10 @@ class laser_access_control:
       
       self.lcd.display_list_of_strings(["added user", name_to_add, "with uid", hex(uid_to_add)], display_last_16=False)
       
-      self.lcd.display_list_of_strings(["scan next", "RamCard", "or wait", "%d seconds" % ADD_USER_TIMEOUT_SECONDS], "to exit add mode")
+      self.lcd.display_list_of_strings(["scan new RamCard", "or wait", "%d seconds" % ADD_USER_TIMEOUT_SECONDS, "to exit add mode"])
   
   def main(self):
     while True:
-      
-      # if a user just finished using the laser cutter ...
-      if self.laser_just_finished_normally:
-        
-        # ... and then go back to the top of this while loop
-        self.laser_just_finished_normally = False
-        continue
       
       uid = self.reader.read_id_no_block()
       
@@ -334,12 +327,11 @@ class laser_access_control:
     # if this program errors out,
     #  "turn off" the lcd and LED and close the connection to the database
     #  before exiting
-    finally:
-      self.lcd.clear()
-      self.lcd.backlight(0)
-      self.set_LED(0, 0, 0)
-      self.db.close()
-      # TODO print error for debugging purposes?
+    self.lcd.clear()
+    self.lcd.backlight(0)
+    self.set_LED(0, 0, 0)
+    self.db.close()
+    # TODO print error for debugging purposes?
   
   # TODO move this method definition? seems logical to have cleanup() be the last definition
   def activate_keyboard_and_get_name(self):
@@ -366,5 +358,6 @@ if __name__ == "__main__":
   
   try:
     access_controller.main()
-  except:
+  except Exception as e:
     access_controller.cleanup()
+    raise e
