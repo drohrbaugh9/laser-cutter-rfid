@@ -93,8 +93,8 @@ class laser_access_control:
     self.reader = SimpleMFRC522()
     
     # connect to database
-    #  use absolute path because when this script runs at boot, it is not launched
-    #  from this folder that it is in
+    #  use absolute path because when this script runs at boot (using /etc/rc.local),
+    #  it is not launched from this folder that it is in
     self.db = db_interface.db_interface("/home/pi/senior_design_FA23/laser-cutter-rfid/prod.db")
     
     # -- LCD setup --

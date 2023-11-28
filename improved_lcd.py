@@ -9,6 +9,7 @@ class lcd(lcd_driver.lcd):
   AUTHORIZED =     "AUTHORIZED"
   
   def __init__(self):
+    super().__init__() # call original class constructor, then do custom setup
     self.setup()
   
   def setup(self):
@@ -16,7 +17,7 @@ class lcd(lcd_driver.lcd):
     self.backlight(1)
   
   def clear(self):
-    self.clear()
+    self.lcd_clear()
   
   def display_string(self, string, row, display_last_16 = True, align_left = True):
     formatted_str = string
