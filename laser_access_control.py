@@ -19,6 +19,8 @@ RED_LED_PIN_NUMBER = 32
 GREEN_LED_PIN_NUMBER = 33
 BLUE_LED_PIN_NUMBER = 35
 
+shift_chars = {'1':'!', '2':'@', '3':'#', '4':'$', '5':'%', '6':'^', '7':'&', '8':'*', '9':'(', '0':')', '-':'_', '=':'+', '\\':'|', '`':'~', '[':'{', ']':'}', ';':':', '\'':'"', ',':'<', '.':'>', '/':'?'}
+
 def process_key_press(event):
   global name_from_keyboard, keyboard_done, shift_pressed, accepting_keyboard_input
   
@@ -43,8 +45,10 @@ def process_key_press(event):
   
   elif len(event.name) == 1:
     if shift_pressed:
-      if 
-      name_from_keyboard += event.name.upper()
+      if event.name in shift_chars.keys():
+        name_from_keyboard += shift_chars[event.name]
+      else:
+        name_from_keyboard += event.name.upper()
     else:
       name_from_keyboard += event.name
   
