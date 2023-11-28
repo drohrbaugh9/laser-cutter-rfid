@@ -39,4 +39,5 @@ class lcd(lcd_driver.lcd):
     for i in range(1, len(strings)):
       self.display_string(strings[i -1], 1, display_last_16, align_left)
       self.display_string(strings[i], 2, display_last_16, align_left)
+      if sleep_time == 0: continue # don't bother calling sleep(0)
       time.sleep(sleep_time)
