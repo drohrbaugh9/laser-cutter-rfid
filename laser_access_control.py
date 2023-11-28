@@ -28,14 +28,6 @@ def GPIO_setup():
   GPIO.setup(RED_LED_PIN_NUMBER, GPIO.OUT);
   GPIO.setup(GREEN_LED_PIN_NUMBER, GPIO.OUT);
   GPIO.setup(BLUE_LED_PIN_NUMBER, GPIO.OUT);
-  
-  red = GPIO.PWM(RED_LED_PIN_NUMBER, 2);
-  green = GPIO.PWM(GREEN_LED_PIN_NUMBER, 2);
-  blue = GPIO.PWM(BLUE_LED_PIN_NUMBER, 2);
-  
-  green.start(0)
-  red.start(0)
-  blue.start(0)
 
 # standardize checking done button
 #  since the button is connected between the input pin and ground
@@ -51,13 +43,16 @@ def main():
   
   # -- GPIO setup --
   GPIO_setup()
+  red = GPIO.PWM(RED_LED_PIN_NUMBER, 2); red.start(0)
+  green = GPIO.PWM(GREEN_LED_PIN_NUMBER, 2); green.start(0)
+  blue = GPIO.PWM(BLUE_LED_PIN_NUMBER, 2); blue.start(0)
   
   # -- rfid setup --
   reader = SimpleMFRC522()
   
   # connect to database
-  #  use absolute path because when this script runs at boot, it is not launched
-  #  from this folder that it is in
+  #  use absolute path because when this script runs at boot (using /etc/rc.local),
+  #  it is not launched from this folder that it is in
   db = db_interface.db_interface("/home/pi/senior_design_FA23/laser-cutter-rfid/prod.db")
   
   # -- LCD setup --
@@ -176,7 +171,7 @@ def main():
         continue
       
       # this user is authorized, so turn on the laser
-      display_string(self.AUTHORIZED, 2)
+      lcd.display_string(lcd.AUTHORIZED, 2)
       green.ChangeDutyCycle(100)
       blue.ChangeDutyCycle(0)
       GPIO.output(LASER_RELAY_PIN_NUMBER, GPIO.HIGH)
